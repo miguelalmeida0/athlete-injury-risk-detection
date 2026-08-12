@@ -3,7 +3,7 @@ name: Chronos integrity
 on:
   pull_request:
     branches:
-      - chronos/base-ext006-exact-v2
+      - chronos/base-ext006-exact-v3
 
 permissions:
   contents: read

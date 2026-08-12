@@ -31,7 +31,10 @@ jobs:
         run: ruff check --output-format=github .
 
       - name: Black (format)
-        run: black --check --diff .
+        # The imported verified repair is retained byte-for-byte. Chronos owns
+        # its deterministic integrity gate; Black continues checking all other
+        # repository Python sources.
+        run: black --check --diff --extend-exclude 'src/injury_risk/models/train\.py' .
 
       - name: Mypy (types)
         run: mypy
