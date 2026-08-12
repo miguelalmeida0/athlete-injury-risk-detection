@@ -29,7 +29,7 @@ import pandas as pd
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.metrics import classification_report
-from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
+from sklearn.model_selection import StratifiedGroupKFold, cross_validate
 from xgboost import XGBClassifier
 
 from injury_risk.data.generate_synthetic import DEFAULT_OUTPUT, generate
@@ -79,10 +79,12 @@ def _build_pipeline(n_classes: int, seed: int = 42, params: dict | None = None) 
     )
 
 
-def _evaluate_cv(pipe: ImbPipeline, X: pd.DataFrame, y: pd.Series, seed: int = 42) -> dict:
+def _evaluate_cv(
+    pipe: ImbPipeline, X: pd.DataFrame, y: pd.Series, seed: int = 42, groups=None
+) -> dict:
     """Stratified 5-fold cross-validation, returns the mean scores."""
-    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
-    results = cross_validate(pipe, X, y, cv=cv, scoring=SCORING, n_jobs=-1)
+    cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+    results = cross_validate(pipe, X, y, cv=cv, scoring=SCORING, n_jobs=-1, groups=groups)
     summary = {
         metric: {
             "mean": float(np.mean(results[f"test_{metric}"])),
@@ -140,12 +142,13 @@ def train_track(track: str, seed: int = 42, tuned: bool = False) -> dict:
     best hyperparameters are loaded and used.
     """
     if track == "synthetic":
-        X, y, _ = _prepare_synthetic(sample_per_athlete=40, seed=seed)
+        X, y, df = _prepare_synthetic(sample_per_athlete=40, seed=seed)
     elif track == "real":
-        X, y, _ = _prepare_real(seed=seed)
+        X, y, df = _prepare_real(seed=seed)
     else:
         raise ValueError(f"unknown track: {track!r} (expected 'synthetic' or 'real')")
 
+    groups = df["athlete_id"].to_numpy() if track == "synthetic" else np.arange(len(X))
     n_classes = int(y.nunique())
     print(f"\n=== Track '{track}': {len(X)} rows, {X.shape[1]} features, {n_classes} classes ===")
     print(f"Target distribution: {y.value_counts(normalize=True).sort_index().round(3).to_dict()}")
@@ -162,13 +165,16 @@ def train_track(track: str, seed: int = 42, tuned: bool = False) -> dict:
     pipe = _build_pipeline(n_classes, seed, params=params)
 
     # 1) Cross-validation (honest performance estimate).
-    cv_summary = _evaluate_cv(pipe, X, y, seed)
+    cv_summary = _evaluate_cv(pipe, X, y, seed, groups=groups)
     print("Cross-validation (5 folds):")
     for metric, stats in cv_summary.items():
         print(f"  {metric:14s} = {stats['mean']:.3f} ± {stats['std']:.3f}")
 
     # 2) Hold-out for a readable classification report.
-    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=seed)
+    _chronos_holdout_cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
+    _chronos_train_idx, _chronos_test_idx = next(_chronos_holdout_cv.split(X, y, groups=groups))
+    X_tr, X_te = X.iloc[_chronos_train_idx], X.iloc[_chronos_test_idx]
+    y_tr, y_te = y.iloc[_chronos_train_idx], y.iloc[_chronos_test_idx]
     pipe.fit(X_tr, y_tr)
     y_pred = pipe.predict(X_te)
     report = classification_report(y_te, y_pred, output_dict=True, zero_division=0)

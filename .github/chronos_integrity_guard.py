@@ -5,7 +5,6 @@ import ast
 import json
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parents[1]
 POLICY_PATH = ROOT / "chronos-policy.json"
 
@@ -30,23 +29,27 @@ def _violations(path: Path, code: str, policy: dict[str, object]) -> list[dict[s
             continue
         name = _call_name(node)
         if name in forbidden:
-            findings.append({
-                "rule_id": rule["id"],
-                "kind": rule["kind"],
-                "path": str(path.relative_to(ROOT)),
-                "line": node.lineno,
-                "reason": f"forbidden non-group-aware split call: {name}",
-            })
+            findings.append(
+                {
+                    "rule_id": rule["id"],
+                    "kind": rule["kind"],
+                    "path": str(path.relative_to(ROOT)),
+                    "line": node.lineno,
+                    "reason": f"forbidden non-group-aware split call: {name}",
+                }
+            )
         if name == required["call"] and not any(
             keyword.arg == required["keyword"] for keyword in node.keywords
         ):
-            findings.append({
-                "rule_id": rule["id"],
-                "kind": rule["kind"],
-                "path": str(path.relative_to(ROOT)),
-                "line": node.lineno,
-                "reason": "cross_validate is missing the required groups argument",
-            })
+            findings.append(
+                {
+                    "rule_id": rule["id"],
+                    "kind": rule["kind"],
+                    "path": str(path.relative_to(ROOT)),
+                    "line": node.lineno,
+                    "reason": "cross_validate is missing the required groups argument",
+                }
+            )
     return findings
 
 
