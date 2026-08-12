@@ -29,7 +29,7 @@ import pandas as pd
 from imblearn.over_sampling import SMOTE
 from imblearn.pipeline import Pipeline as ImbPipeline
 from sklearn.metrics import classification_report
-from sklearn.model_selection import StratifiedGroupKFold, cross_validate
+from sklearn.model_selection import StratifiedKFold, cross_validate, train_test_split
 from xgboost import XGBClassifier
 
 from injury_risk.data.generate_synthetic import DEFAULT_OUTPUT, generate
@@ -83,8 +83,8 @@ def _evaluate_cv(
     pipe: ImbPipeline, X: pd.DataFrame, y: pd.Series, seed: int = 42, groups=None
 ) -> dict:
     """Stratified 5-fold cross-validation, returns the mean scores."""
-    cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
-    results = cross_validate(pipe, X, y, cv=cv, scoring=SCORING, n_jobs=-1, groups=groups)
+    cv = StratifiedKFold(n_splits=5, shuffle=True, random_state=seed)
+    results = cross_validate(pipe, X, y, cv=cv, scoring=SCORING, n_jobs=-1)
     summary = {
         metric: {
             "mean": float(np.mean(results[f"test_{metric}"])),
@@ -171,10 +171,7 @@ def train_track(track: str, seed: int = 42, tuned: bool = False) -> dict:
         print(f"  {metric:14s} = {stats['mean']:.3f} ± {stats['std']:.3f}")
 
     # 2) Hold-out for a readable classification report.
-    _chronos_holdout_cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
-    _chronos_train_idx, _chronos_test_idx = next(_chronos_holdout_cv.split(X, y, groups=groups))
-    X_tr, X_te = X.iloc[_chronos_train_idx], X.iloc[_chronos_test_idx]
-    y_tr, y_te = y.iloc[_chronos_train_idx], y.iloc[_chronos_test_idx]
+    X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, stratify=y, random_state=seed)
     pipe.fit(X_tr, y_tr)
     y_pred = pipe.predict(X_te)
     report = classification_report(y_te, y_pred, output_dict=True, zero_division=0)
