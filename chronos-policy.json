@@ -1,0 +1,30 @@
+{
+  "schema": "chronos.policy.v1",
+  "policy_id": "chronos-ext-006-athlete-group-split",
+  "state": "installed",
+  "originating_repository": "Amayyas/athlete-injury-risk-detection",
+  "originating_commit": "a581cbdf3fa5ba193dcd294b8711465a92fe74b7",
+  "originating_finding": "Repeated athlete_id entities crossed cross-validation and holdout boundaries",
+  "minimum_evidence": "structurally_established",
+  "coverage": {
+    "mode": "COMPLETE",
+    "supported_paths": [
+      "src/injury_risk/models/train.py"
+    ]
+  },
+  "rules": [
+    {
+      "id": "CHRONOS-GROUP-SPLIT-001",
+      "kind": "test_contamination",
+      "description": "The selected experiment must use group-aware CV and holdout splitting",
+      "forbid_calls": [
+        "StratifiedKFold",
+        "train_test_split"
+      ],
+      "require_keyword": {
+        "call": "cross_validate",
+        "keyword": "groups"
+      }
+    }
+  ]
+}
