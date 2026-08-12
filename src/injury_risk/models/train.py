@@ -79,7 +79,9 @@ def _build_pipeline(n_classes: int, seed: int = 42, params: dict | None = None) 
     )
 
 
-def _evaluate_cv(pipe: ImbPipeline, X: pd.DataFrame, y: pd.Series, seed: int = 42, groups=None) -> dict:
+def _evaluate_cv(
+    pipe: ImbPipeline, X: pd.DataFrame, y: pd.Series, seed: int = 42, groups=None
+) -> dict:
     """Stratified 5-fold cross-validation, returns the mean scores."""
     cv = StratifiedGroupKFold(n_splits=5, shuffle=True, random_state=seed)
     results = cross_validate(pipe, X, y, cv=cv, scoring=SCORING, n_jobs=-1, groups=groups)
@@ -146,7 +148,7 @@ def train_track(track: str, seed: int = 42, tuned: bool = False) -> dict:
     else:
         raise ValueError(f"unknown track: {track!r} (expected 'synthetic' or 'real')")
 
-    groups = df['athlete_id'].to_numpy() if track == 'synthetic' else np.arange(len(X))
+    groups = df["athlete_id"].to_numpy() if track == "synthetic" else np.arange(len(X))
     n_classes = int(y.nunique())
     print(f"\n=== Track '{track}': {len(X)} rows, {X.shape[1]} features, {n_classes} classes ===")
     print(f"Target distribution: {y.value_counts(normalize=True).sort_index().round(3).to_dict()}")
